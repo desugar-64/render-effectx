@@ -35,9 +35,9 @@ The sample app is a landscape pager of three mini-demos, each applying one **ani
 straight to a Compose card (not a SurfaceView). Recorded scrolling through the pager on a device,
 on a **release R8** build:
 
-<video src="https://github.com/desugar-64/render-effectx/raw/main/demo/walkthrough.mp4" controls muted loop width="900">
-  <a href="demo/walkthrough.mp4">Walkthrough video (demo/walkthrough.mp4)</a>
-</video>
+<p align="center">
+  <img src="demo/walkthrough.webp" width="760" alt="Scrolling through the three demo pages on a device">
+</p>
 
 - **CRT television.** Screen curvature, scanlines, chromatic edges, a rolling bar. `crtEffect(time)`
 - **Glitch burst.** Channel split, block tearing, scanlines, dropout. `glitchEffect(time, intensity)`
