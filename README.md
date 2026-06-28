@@ -1,62 +1,51 @@
-# render-effectx — (experimental) per-pixel GPU effects on Jetpack Compose content
+# RenderEffectX: experimental per-pixel GPU effects on Jetpack Compose content
 
 > [!CAUTION]
-> **This is not a library, and it is not production-ready.** render-effectx is a small
-> for-fun experiment: run a GLSL fragment shader over the pixels of a Compose composable,
-> GPU→GPU, down to Android 10 (API 29). It is **not** a backport of `RuntimeShader` /
-> `RenderEffect`, and not trying to be — it's a narrow slice of that idea, built mostly to
-> see how far `HardwareBuffer`, `HardwareRenderer` and hardware `Bitmap` can be pushed.
-> Expect rough edges. Don't ship it.
+> **Not a library, not production-ready. A for-fun experiment.** Expect rough edges, breaking
+> changes and unhandled cases. Don't ship it.
 
 <p align="center">
   <img src="demo/banner.webp" width="900" alt="render-effectx demos: CRT player, glitch profile, chromatic ripple">
 </p>
 
+## What this is not
+
+- **Not a backport or replica of `RenderEffect` / AGSL `RuntimeShader`.** It doesn't match their
+  API, doesn't call `View.setRenderEffect`, doesn't hand off to the platform on API 31+.
+- **A narrow subset.** One Modifier, one GL pass, GLSL ES shader strings. No effect graph, no
+  chaining/blending, no built-in catalog, no Kotlin→GPU DSL, no AGSL.
+- **Limited, throwaway-grade.** Minimal error handling, no resource-lifecycle polish.
+
+It exists to prove one thing: how flexible the `HardwareBuffer` / `HardwareRenderer` / hardware
+`Bitmap` path is: enough to run per-pixel shader effects on live Compose content, down to API 29,
+where AGSL `RuntimeShader` doesn't exist yet (that's API 33+).
+
 ## What it is
 
-One Modifier — `Modifier.runtimeEffect(effect)` — captures the composable's content into a
-`HardwareBuffer` (no CPU readback), imports it zero-copy as an OpenGL ES texture, runs your
-GLSL ES fragment shader over it, and draws the result back. The effect lands on the
-composable's **own content** — not a `SurfaceView`, not the window background.
-
-It's the same *spirit* as `RenderEffect.createRuntimeShaderEffect` — "write a per-pixel
-function, get the processed content back" — but its own small thing. The interesting part is
-that it works on **API 29+**, where the platform's AGSL `RuntimeShader` doesn't exist yet
-(that's API 33+). No AGSL, no transpiler, no platform delegation, no effect graph, no built-in
-catalog — blur would just be one more shader string.
+One Modifier, `Modifier.runtimeEffect(effect)`, captures the composable's content into a
+`HardwareBuffer` (no CPU readback), imports it zero-copy as an OpenGL ES texture, runs your GLSL ES
+fragment shader over it, and draws the result back. The effect lands on the composable's **own
+content**, not a `SurfaceView`, not the window background. Same *spirit* as
+`RenderEffect.createRuntimeShaderEffect` ("write a per-pixel function, get the processed content
+back"), its own small implementation.
 
 ## Demos
 
-The sample app is a landscape pager of three mini-demos, each applying one **animatable**
-effect straight to a Compose card. Everything below was recorded on a **release R8** build.
+The sample app is a landscape pager of three mini-demos, each applying one **animatable** effect
+straight to a Compose card (not a SurfaceView). Recorded scrolling through the pager on a device,
+on a **release R8** build:
 
-<table>
-  <tr>
-    <td align="center" width="33%">
-      <img src="demo/tile_signal.webp" width="260" alt="CRT television effect on a music player card"><br/>
-      <b>CRT television</b><br/>
-      curvature · scanlines · chromatic edges · rolling bar<br/>
-      <code>Modifier.runtimeEffect(crtEffect(time))</code>
-    </td>
-    <td align="center" width="33%">
-      <img src="demo/tile_glitch.webp" width="260" alt="Glitch burst tearing a profile photo"><br/>
-      <b>Glitch burst</b><br/>
-      channel split · block tearing · scanlines · dropout<br/>
-      <code>Modifier.runtimeEffect(glitchEffect(time, intensity))</code>
-    </td>
-    <td align="center" width="33%">
-      <img src="demo/tile_chroma.webp" width="260" alt="Chromatic-aberration ripple from a tap"><br/>
-      <b>Chromatic ripple</b><br/>
-      an RGB shockwave radiating from your finger<br/>
-      <code>Modifier.runtimeEffect(chromaticRippleEffect(…))</code>
-    </td>
-  </tr>
-</table>
+<video src="https://github.com/desugar-64/render-effectx/raw/main/demo/walkthrough.mp4" controls muted loop width="900">
+  <a href="demo/walkthrough.mp4">Walkthrough video (demo/walkthrough.mp4)</a>
+</video>
 
-All three are driven the same way: rebuild the effect each frame with new uniform values
-(animate with any Compose animation API). The session caches the compiled program by shader
-source, so only the uniforms change — animating is cheap. The CRT and glitch run on the whole
-card; the ripple follows your touch point.
+- **CRT television.** Screen curvature, scanlines, chromatic edges, a rolling bar. `crtEffect(time)`
+- **Glitch burst.** Channel split, block tearing, scanlines, dropout. `glitchEffect(time, intensity)`
+- **Chromatic ripple.** An RGB shockwave radiating from your touch. `chromaticRippleEffect(...)`
+
+All three are driven the same way: rebuild the effect each frame with new uniform values (animate
+with any Compose animation API). The session caches the compiled program by shader source, so only
+the uniforms change, which keeps animating cheap.
 
 ## Using it
 
@@ -89,7 +78,7 @@ Public API:
 The demo shaders live in the sample, not the library:
 [`DemoEffects.kt`](app/src/main/java/dev/serhiiyaremych/rendereffectx/DemoEffects.kt).
 
-## A full effect, end to end — chromatic ripple
+## A full effect, end to end: chromatic ripple
 
 The shader (GLSL ES 2.0):
 
@@ -152,15 +141,15 @@ zero-copy `HardwareBuffer` path is the thing this experiment is really poking at
 
 ## Credits
 
-- The **CRT** scene is adapted from the Shadertoy shader *"CRT"* —
-  https://www.shadertoy.com/view/tfdBzj — ported from its GLSL ES 3.0 (`mainImage` /
+- The **CRT** scene is adapted from the Shadertoy shader *"CRT"*
+  (https://www.shadertoy.com/view/tfdBzj), ported from its GLSL ES 3.0 (`mainImage` /
   `iChannel0` / `texture`) form to this project's GLSL ES 2.0 contract.
 - The GPU capture approach and GL abstractions grew out of a sister experiment,
   [imla](https://github.com/desugar-64/imla).
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
 
 ## Status
 
