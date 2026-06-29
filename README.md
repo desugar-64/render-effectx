@@ -10,30 +10,28 @@
 
 ## What this is not
 
-- **Not a backport or replica of `RenderEffect` / AGSL `RuntimeShader`.** It doesn't match their
-  API, doesn't call `View.setRenderEffect`, doesn't hand off to the platform on API 31+.
-- **A narrow subset.** One Modifier, one GL pass, GLSL ES shader strings. No effect graph, no
-  chaining/blending, no built-in catalog, no Kotlin→GPU DSL, no AGSL.
-- **Limited, throwaway-grade.** Minimal error handling, no resource-lifecycle polish.
+- **Not a backport or replica of `RenderEffect` / AGSL `RuntimeShader`.** Different API, never
+  calls `View.setRenderEffect`, never hands off to the platform on API 31+.
+- **A narrow subset.** One Modifier, one GL pass, GLSL ES shader strings — no effect graph,
+  chaining, catalog, Kotlin→GPU DSL, or AGSL.
+- **Throwaway-grade.** Minimal error handling, no resource-lifecycle polish.
 
-It exists to prove one thing: how flexible the `HardwareBuffer` / `HardwareRenderer` / hardware
-`Bitmap` path is: enough to run per-pixel shader effects on live Compose content, down to API 29,
-where AGSL `RuntimeShader` doesn't exist yet (that's API 33+).
+It exists to prove one thing: how far the `HardwareBuffer` / `HardwareRenderer` / hardware
+`Bitmap` path stretches — far enough to run per-pixel shader effects on live Compose content
+down to API 29, years before AGSL `RuntimeShader` (API 33+).
 
 ## What it is
 
-One Modifier, `Modifier.runtimeEffect(effect)`, captures the composable's content into a
+One Modifier, `Modifier.runtimeEffect(effect)`: it captures the composable's content into a
 `HardwareBuffer` (no CPU readback), imports it zero-copy as an OpenGL ES texture, runs your GLSL ES
-fragment shader over it, and draws the result back. The effect lands on the composable's **own
-content**, not a `SurfaceView`, not the window background. Same *spirit* as
-`RenderEffect.createRuntimeShaderEffect` ("write a per-pixel function, get the processed content
-back"), its own small implementation.
+fragment shader over it, and draws the result back — on the composable's **own content**, not a
+`SurfaceView` or the window background. Same *spirit* as
+`RenderEffect.createRuntimeShaderEffect`, its own small implementation.
 
 ## Demos
 
 The sample app is a landscape pager of three mini-demos, each applying one **animatable** effect
-straight to a Compose card (not a SurfaceView). Recorded scrolling through the pager on a device,
-on a **release R8** build:
+straight to a Compose card. Recorded scrolling the pager on-device, **release R8** build:
 
 <p align="center">
   <img src="demo/walkthrough.webp" width="760" alt="Scrolling through the three demo pages on a device">
@@ -43,9 +41,9 @@ on a **release R8** build:
 - **Glitch burst.** Channel split, block tearing, scanlines, dropout. `glitchEffect(time, intensity)`
 - **Chromatic ripple.** An RGB shockwave radiating from your touch. `chromaticRippleEffect(...)`
 
-All three are driven the same way: rebuild the effect each frame with new uniform values (animate
-with any Compose animation API). The session caches the compiled program by shader source, so only
-the uniforms change, which keeps animating cheap.
+All three work the same way: rebuild the effect each frame with new uniforms (any Compose animation
+API). The session caches the compiled program by shader source, so only uniforms change — animating
+stays cheap.
 
 ## Using it
 
@@ -58,18 +56,26 @@ val invert = RuntimeEffect(
     """
     precision mediump float;
     uniform sampler2D content;
+    uniform float amount;                     // 0 = original, 1 = fully inverted
     varying vec2 vTexCoord;
     void main() {
         vec4 c = texture2D(content, vTexCoord);
-        gl_FragColor = vec4(1.0 - c.rgb, c.a);   // invert, keep alpha
+        gl_FragColor = vec4(mix(c.rgb, 1.0 - c.rgb, amount), c.a);
     }
     """.trimIndent()
-)
+).apply { setFloatUniform("amount", amount) }  // drive from a slider or animation
 
 Box(Modifier.runtimeEffect(invert)) {
     // ...any composable content; its pixels go through the shader
 }
 ```
+
+That exact shader, on a card holding the Jetpack Compose logo, with a slider driving `amount`
+([`InvertDemoActivity`](app/src/main/java/dev/serhiiyaremych/rendereffectx/InvertDemoActivity.kt)):
+
+<p align="center">
+  <img src="demo/invert.webp" width="280" alt="A slider sweeping the invert shader's amount uniform on the Jetpack Compose logo: original colours on a white card at 0, inverted colours on a black card at 1">
+</p>
 
 Public API:
 [`Modifier.runtimeEffect()`](rendereffectx/src/main/java/dev/serhiiyaremych/rendereffectx/RuntimeEffectModifier.kt),

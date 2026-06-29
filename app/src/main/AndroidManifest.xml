@@ -25,6 +25,15 @@
             </intent-filter>
         </activity>
 
+        <!-- Standalone invert scene (logo + slider), portrait. README visual companion to the
+             invert example: `am start -n …/.InvertDemoActivity`. -->
+        <activity
+            android:name=".InvertDemoActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.RenderEffectX" />
+
         <!-- Kept for perf measurement: `am start -n …/.MainActivity -e scene static`. -->
         <activity
             android:name=".MainActivity"
